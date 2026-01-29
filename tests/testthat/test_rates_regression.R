@@ -46,7 +46,7 @@ test_that("rates regression: simulate, estimate, compare, plot", {
     "marriage_eval distribution",
     "marriage_after_childbirth 1",
     "input_file init_new",
-    "duration 480",
+    "duration 600",
     "include SWEfert2022",
     "include SWEmort2022",
     "run"
