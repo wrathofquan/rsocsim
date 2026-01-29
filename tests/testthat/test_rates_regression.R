@@ -181,3 +181,89 @@ test_that("rates regression: simulate, estimate, compare, plot", {
        col = c("#2C7FB8", "#D95F02"), lwd = 2, bty = "n")
     }
 })
+
+test_that("rates regression: identical outputs with fixed seed", {
+  testthat::skip_on_cran()
+  if (Sys.getenv("RSOCSIM_RUN_INTEGRATION_TESTS") != "1") {
+    testthat::skip(paste(
+      "Integration test disabled.",
+      "Enable by setting RSOCSIM_RUN_INTEGRATION_TESTS=1.",
+      "In PowerShell: $Env:RSOCSIM_RUN_INTEGRATION_TESTS=\"1\"",
+      "In R: Sys.setenv(RSOCSIM_RUN_INTEGRATION_TESTS=\"1\")"
+    ))
+  }
+
+  if (!exists("startSocsimWithFile", where = asNamespace("rsocsim"), mode = "function")) {
+    testthat::skip("Compiled backend not available.")
+  }
+
+  simdir <- file.path(tempdir(), "rsocsim-rates-regression-fixed-seed")
+  dir.create(simdir, showWarnings = FALSE, recursive = TRUE)
+  print(paste(c("simdir: ", simdir)))
+
+  fert_src <- system.file("extdata", "SWEfert2022", package = "rsocsim", mustWork = TRUE)
+  mort_src <- system.file("extdata", "SWEmort2022", package = "rsocsim", mustWork = TRUE)
+  init_src <- system.file("extdata", "init_new.opop", package = "rsocsim", mustWork = TRUE)
+
+  file.copy(fert_src, file.path(simdir, "SWEfert2022"), overwrite = TRUE)
+  file.copy(mort_src, file.path(simdir, "SWEmort2022"), overwrite = TRUE)
+  file.copy(init_src, file.path(simdir, "init_new.opop"), overwrite = TRUE)
+  file.create(file.path(simdir, "init_new.omar"))
+
+  sup_content <- c(
+    "marriage_queues 1",
+    "bint 10",
+    "segments 1",
+    "marriage_eval distribution",
+    "marriage_after_childbirth 1",
+    "input_file init_new",
+    "duration 1200",
+    "include SWEfert2022",
+    "include SWEmort2022",
+    "run"
+  )
+  sup_path <- file.path(simdir, "socsim.sup")
+  writeLines(sup_content, sup_path)
+
+  seed_env <- Sys.getenv("RSOCSIM_RATES_SEED", "123456")
+  seed <- if (seed_env == "random") "123456" else seed_env
+  suffix <- "rates_fixed_seed"
+
+  print(paste0("Fixed-seed reproducibility check. Using seed=", seed, "."))
+  result1 <- socsim(simdir, "socsim.sup", seed = seed, process_method = "inprocess", suffix = suffix)
+  expect_equal(result1, 1)
+
+  output_dir1 <- file.path(simdir, paste0("sim_results_", seed, "_", suffix))
+  opop_path1 <- file.path(output_dir1, "result.opop")
+  omar_path1 <- file.path(output_dir1, "result.omar")
+
+  expect_true(file.exists(opop_path1))
+  expect_true(file.exists(omar_path1))
+
+  opop1 <- read_opop(fn = opop_path1)
+  omar1 <- read_omar(fn = omar_path1)
+
+  result2 <- socsim(simdir, "socsim.sup", seed = seed, process_method = "inprocess", suffix = suffix)
+  expect_equal(result2, 1)
+
+  output_dir2 <- file.path(simdir, paste0("sim_results_", seed, "_", suffix))
+  opop_path2 <- file.path(output_dir2, "result.opop")
+  omar_path2 <- file.path(output_dir2, "result.omar")
+
+  expect_true(file.exists(opop_path2))
+  expect_true(file.exists(omar_path2))
+
+  opop2 <- read_opop(fn = opop_path2)
+  omar2 <- read_omar(fn = omar_path2)
+
+  identical_opop <- isTRUE(all.equal(opop1, opop2, check.attributes = TRUE))
+  identical_omar <- isTRUE(all.equal(omar1, omar2, check.attributes = TRUE))
+
+  print(paste0(
+    "Fixed-seed reproducibility outcome: opop identical=", identical_opop,
+    ", omar identical=", identical_omar, "."
+  ))
+
+  expect_true(identical_opop)
+  expect_true(identical_omar)
+})
