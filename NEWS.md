@@ -1,3 +1,6 @@
+# rsocsim 1.8 (Jan 2026)
+ * added end2end tests as a preparation for some improvements to the C code
+
 # rsocsim 1.7.4 (Dec 5 2025)
  * added parameter presim_duration_months to download_rates
 

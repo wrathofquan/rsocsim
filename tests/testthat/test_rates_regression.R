@@ -46,7 +46,7 @@ test_that("rates regression: simulate, estimate, compare, plot", {
     "marriage_eval distribution",
     "marriage_after_childbirth 1",
     "input_file init_new",
-    "duration 600",
+    "duration 1200",
     "include SWEfert2022",
     "include SWEmort2022",
     "run"
@@ -80,9 +80,9 @@ test_that("rates regression: simulate, estimate, compare, plot", {
   # Estimate yearly fertility and mortality rates
   asfr <- estimate_fertility_rates(
     opop = opop,
-    final_sim_year = 2010,
-    year_min = 1960,
-    year_max = 2010,
+    final_sim_year = 2022,
+    year_min = 1922,
+    year_max = 2022,
     year_group = 1,
     age_min_fert = 15,
     age_max_fert = 50,
@@ -91,9 +91,9 @@ test_that("rates regression: simulate, estimate, compare, plot", {
 
   asmr <- estimate_mortality_rates(
     opop = opop,
-    final_sim_year = 2010,
-    year_min = 1960,
-    year_max = 2010,
+    final_sim_year = 2022,
+    year_min = 1922,
+    year_max = 2022,
     year_group = 1,
     age_max_mort = 100,
     age_group = 5
@@ -119,21 +119,7 @@ test_that("rates regression: simulate, estimate, compare, plot", {
 
   date_tag <- format(Sys.Date(), "%Y%m%d")
   current_path <- file.path(results_dir, sprintf("rates_current_%s_seed_%s.csv", date_tag, seed))
-  baseline_override <- Sys.getenv("RSOCSIM_RATES_BASELINE", "")
-  if (nzchar(baseline_override)) {
-    baseline_path <- baseline_override
-  } else {
-    baseline_candidates <- list.files(
-      results_dir,
-      pattern = "^rates_baseline_\\d{8}_seed_.*\\.csv$",
-      full.names = TRUE
-    )
-    baseline_path <- if (length(baseline_candidates) > 0) {
-      sort(baseline_candidates, decreasing = TRUE)[1]
-    } else {
-      file.path(results_dir, sprintf("rates_baseline_%s_seed_%s.csv", date_tag, seed))
-    }
-  }
+  baseline_path <- file.path(results_dir, "baseline.csv")
   plot_path <- file.path(results_dir, sprintf("rates_plot_%s_seed_%s.png", date_tag, seed))
 
   utils::write.csv(rates, current_path, row.names = FALSE)
@@ -160,6 +146,28 @@ test_that("rates regression: simulate, estimate, compare, plot", {
       xlab = "Month", ylab = "Rate",
       main = "Simulated rates (fertility vs mortality)")
     lines(rates$month, rates$rate_mortality, col = "#D95F02", lwd = 2)
+      current_candidates <- list.files(
+        results_dir,
+        pattern = "^rates_current_\\d{8}_seed_.*\\.csv$",
+        full.names = TRUE
+      )
+      current_candidates <- sort(current_candidates)
+      if (length(current_candidates) > 0) {
+        current_first <- head(current_candidates, 3)
+        current_last <- tail(current_candidates, 3)
+        current_pick <- unique(c(current_first, current_last))
+        for (csv_path in current_pick) {
+          if (file.exists(csv_path)) {
+            df <- utils::read.csv(csv_path)
+            if (all(c("month", "rate_fertility", "rate_mortality") %in% names(df))) {
+              lines(df$month, df$rate_fertility,
+                col = grDevices::adjustcolor("#2C7FB8", alpha.f = 0.35), lwd = 1)
+              lines(df$month, df$rate_mortality,
+                col = grDevices::adjustcolor("#D95F02", alpha.f = 0.35), lwd = 1)
+            }
+          }
+        }
+      }
     if (exists("baseline") && nrow(baseline) > 0) {
       lines(rates$month, baseline$rate_fertility, col = "#2C7FB8", lwd = 2, lty = 2)
       lines(rates$month, baseline$rate_mortality, col = "#D95F02", lwd = 2, lty = 2)
