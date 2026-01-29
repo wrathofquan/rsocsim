@@ -401,7 +401,8 @@ int main1(int argc, char *argv[])
 
     if ((fd_otx = fopen(otx_file_name, "r")) == NULL)
     {
-        warning("Can't open transition history file. If you did not specify rates for transitions between groups, this is fine.\n");
+        logmsg("Can't open transition history file. If you did not specify rates for transitions between groups, this is fine.\n", " ", 1);
+        Rprintf("Can't open transition history file. If you did not specify rates for transitions between groups, this is fine.\n");
         //perror("can't open  transition history file. Hope that's OK\n");
     }
     //Rprintf("------------aa2");
