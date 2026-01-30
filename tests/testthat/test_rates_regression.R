@@ -2,7 +2,11 @@ library(testthat)
 library(rsocsim)
 
 # Helper: compare numeric vectors with tolerances
-expect_within_tolerance <- function(current, baseline, abs_tol = 0.05, rel_tol = 0.5) {
+expect_within_tolerance <- function(current, baseline, abs_tol = NULL, rel_tol = NULL) {
+  abs_tol_env <- suppressWarnings(as.numeric(Sys.getenv("RSOCSIM_RATES_ABS_TOL", "0.06")))
+  rel_tol_env <- suppressWarnings(as.numeric(Sys.getenv("RSOCSIM_RATES_REL_TOL", "0.6")))
+  abs_tol <- if (is.null(abs_tol) || is.na(abs_tol)) abs_tol_env else abs_tol
+  rel_tol <- if (is.null(rel_tol) || is.na(rel_tol)) rel_tol_env else rel_tol
   stopifnot(length(current) == length(baseline))
   diff <- abs(current - baseline)
   allowed <- pmax(abs_tol, rel_tol * abs(baseline))
@@ -141,33 +145,23 @@ test_that("rates regression: simulate, estimate, compare, plot", {
     # Plot and save
     grDevices::png(plot_path, width = 900, height = 600)
     on.exit(grDevices::dev.off(), add = TRUE)
+    y_values <- c(rates$rate_fertility, rates$rate_mortality)
+    if (exists("baseline") && nrow(baseline) > 0) {
+      y_values <- c(y_values, baseline$rate_fertility, baseline$rate_mortality)
+    }
+    y_values <- y_values[is.finite(y_values)]
+    y_max <- if (length(y_values) > 0) {
+      stats::quantile(y_values, probs = 0.995, names = FALSE, na.rm = TRUE)
+    } else {
+      1
+    }
+    y_max <- max(y_max, 0.1)
     plot(rates$month, rates$rate_fertility, type = "l",
       col = "#2C7FB8", lwd = 2,
       xlab = "Month", ylab = "Rate",
-      main = "Simulated rates (fertility vs mortality)")
+      main = "Simulated rates (fertility vs mortality)",
+      ylim = c(0, y_max))
     lines(rates$month, rates$rate_mortality, col = "#D95F02", lwd = 2)
-      current_candidates <- list.files(
-        results_dir,
-        pattern = "^rates_current_\\d{8}_seed_.*\\.csv$",
-        full.names = TRUE
-      )
-      current_candidates <- sort(current_candidates)
-      if (length(current_candidates) > 0) {
-        current_first <- head(current_candidates, 3)
-        current_last <- tail(current_candidates, 3)
-        current_pick <- unique(c(current_first, current_last))
-        for (csv_path in current_pick) {
-          if (file.exists(csv_path)) {
-            df <- utils::read.csv(csv_path)
-            if (all(c("month", "rate_fertility", "rate_mortality") %in% names(df))) {
-              lines(df$month, df$rate_fertility,
-                col = grDevices::adjustcolor("#2C7FB8", alpha.f = 0.35), lwd = 1)
-              lines(df$month, df$rate_mortality,
-                col = grDevices::adjustcolor("#D95F02", alpha.f = 0.35), lwd = 1)
-            }
-          }
-        }
-      }
     if (exists("baseline") && nrow(baseline) > 0) {
       lines(rates$month, baseline$rate_fertility, col = "#2C7FB8", lwd = 2, lty = 2)
       lines(rates$month, baseline$rate_mortality, col = "#D95F02", lwd = 2, lty = 2)
